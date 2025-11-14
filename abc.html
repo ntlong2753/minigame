@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Flip Card Wishes – Fixed Images (SVG inline)</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root{
+            --bg1:#fff0f7; --bg2:#dff6ff; --card:#ffeef6; --card-back:#fff;
+            --accent:#ff9fcf; --radius:22px; --shadow: rgba(0,0,0,0.12);
+        }
+        *{box-sizing:border-box}
+        body{
+            margin:0;padding:36px;background:linear-gradient(135deg,var(--bg1),var(--bg2));
+            font-family:'Poppins',sans-serif;color:#333;display:flex;flex-direction:column;align-items:center;
+        }
+        h1{margin:0 0 22px;font-size:30px; text-shadow:0 3px 8px rgba(0,0,0,0.06)}
+        .controls{width:100%;max-width:1000px;display:flex;gap:12px;justify-content:flex-end;margin-bottom:18px}
+        .btn{background:var(--accent);border:none;padding:8px 12px;border-radius:12px;color:#111;font-weight:600;cursor:pointer;box-shadow:0 6px 16px var(--shadow)}
+        #cards{width:100%;max-width:1000px;display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:26px}
+        .card{width:100%;height:250px;perspective:1200px;cursor:pointer;transition:transform .25s}
+        .card:hover{transform:translateY(-6px) scale(1.02)}
+        .inner{width:100%;height:100%;position:relative;transform-style:preserve-3d;transition:transform .85s cubic-bezier(.2,.9,.3,1);}
+        .card.flipped .inner{transform:rotateY(180deg)}
+        .face{position:absolute;inset:0;border-radius:var(--radius);backface-visibility:hidden;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px;box-shadow:0 10px 30px var(--shadow)}
+        .front{background:var(--card);gap:12px}
+        .back{background:var(--card-back);transform:rotateY(180deg);gap:10px;font-size:16px;justify-content:space-between}
+        .avatar-wrap{width:120px;height:120px;border-radius:999px;background:linear-gradient(180deg,#fff,#ffddee);display:flex;align-items:center;justify-content:center;box-shadow:0 8px 18px rgba(0,0,0,0.08)}
+        .teacher-name{margin-top:8px;font-weight:600}
+        .save-btn{background:linear-gradient(90deg,#ffd0ea,#ffb3db);border:none;padding:10px;border-radius:12px;cursor:pointer;font-weight:600;box-shadow:0 8px 18px rgba(0,0,0,0.08)}
+        #favorites-box{width:100%;max-width:1000px;margin-top:30px;background:#fff9ff;padding:18px;border-radius:16px;box-shadow:0 10px 30px rgba(0,0,0,0.06)}
+        .fav-item{margin-bottom:6px}
+        @media (max-width:420px){
+            .avatar-wrap{width:92px;height:92px}
+            .card{height:220px}
+        }
+    </style>
+</head>
+<body>
+
+<h1>✨ Bộ Thẻ Lời Chúc – Flip Card ✨</h1>
+
+<div class="controls">
+    <button id="randomizeAll" class="btn">Random tất cả</button>
+    <button id="clearFav" class="btn" style="background:#ffd6d6">Xóa favorites</button>
+</div>
+
+<div id="cards" aria-live="polite"></div>
+
+<div id="favorites-box" aria-live="polite">💖 Lời chúc yêu thích: <div id="favList" style="margin-top:8px">Chưa có</div></div>
+
+<script>
+    /* --- Data --- */
+    const wishes = [
+        "Chúc thầy/cô luôn mạnh khỏe và tràn đầy niềm vui!",
+        "Cảm ơn thầy/cô vì đã truyền cảm hứng mỗi ngày!",
+        "Chúc thầy/cô thật nhiều thành công và hạnh phúc!",
+        "Chúc thầy/cô luôn trẻ trung và nhiệt huyết với nghề!",
+        "Mong thầy/cô luôn gặp nhiều may mắn!",
+        "Em trân trọng những bài học thầy/cô đã dạy!"
+    ];
+    /* favorites from localStorage */
+    let favorites = JSON.parse(localStorage.getItem('favWishes') || '[]');
+
+    /* --- SVG teacher (inline) - scalable, no external request --- */
+    function teacherSVG(colorStroke = '#24333a'){
+        return `
+    <svg viewBox="0 0 120 120" width="84" height="84" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <defs>
+        <linearGradient id="g1" x1="0" x2="1" y1="0" y2="1">
+          <stop offset="0" stop-color="#fff"/>
+          <stop offset="1" stop-color="#ffe6f0"/>
+        </linearGradient>
+      </defs>
+      <circle cx="60" cy="38" r="24" fill="url(#g1)" stroke="${colorStroke}" stroke-width="2"/>
+      <path d="M22 98c0-20 18-36 38-36s38 16 38 36" fill="#fff2f8" stroke="${colorStroke}" stroke-width="2"/>
+      <rect x="28" y="66" width="64" height="20" rx="6" fill="#ffdff0" stroke="${colorStroke}" stroke-width="1.5"/>
+      <path d="M40 42c6 12 34 12 40 0" stroke="#ff8fb6" stroke-width="3" fill="none" stroke-linecap="round"/>
+    </svg>
+  `;
+    }
+
+    /* --- render --- */
+    const container = document.getElementById('cards');
+
+    function makeCard(wishText){
+        const card = document.createElement('div');
+        card.className = 'card';
+        const inner = document.createElement('div');
+        inner.className = 'inner';
+
+        const front = document.createElement('div');
+        front.className = 'face front';
+        front.innerHTML = `
+    <div class="avatar-wrap" aria-hidden="true">${teacherSVG()}</div>
+    <div class="teacher-name">Thầy/Cô</div>
+  `;
+
+        const back = document.createElement('div');
+        back.className = 'face back';
+        back.innerHTML = `
+    <div style="flex:1;display:flex;align-items:center;justify-content:center;padding:8px">${wishText}</div>
+    <div style="width:100%;display:flex;justify-content:center;">
+      <button class="save-btn" type="button">Lưu lời chúc</button>
+    </div>
+  `;
+
+        inner.appendChild(front);
+        inner.appendChild(back);
+        card.appendChild(inner);
+
+        // click flip (but ignore save button)
+        card.addEventListener('click', (e) => {
+            if (e.target.closest('.save-btn')) return;
+            card.classList.toggle('flipped');
+        });
+
+        // save to favorites
+        back.querySelector('.save-btn').addEventListener('click', (ev) => {
+            ev.stopPropagation();
+            favorites.push(wishText);
+            localStorage.setItem('favWishes', JSON.stringify(favorites));
+            renderFavorites();
+            // quick feedback
+            ev.target.textContent = 'Đã lưu ✓';
+            setTimeout(()=> ev.target.textContent = 'Lưu lời chúc',900);
+        });
+
+        return card;
+    }
+
+    function renderCards(count = 6){
+        container.innerHTML = '';
+        for(let i=0;i<count;i++){
+            const w = wishes[Math.floor(Math.random()*wishes.length)];
+            container.appendChild(makeCard(w));
+        }
+    }
+
+    /* favorites display */
+    function renderFavorites(){
+        const el = document.getElementById('favList');
+        if(!favorites.length){ el.innerHTML = 'Chưa có'; return; }
+        el.innerHTML = favorites.map((f,i)=>`<div class="fav-item">${i+1}. ${escapeHtml(f)}</div>`).join('');
+    }
+
+    /* helpers */
+    function escapeHtml(s){ return String(s).replace(/[&<>"']/g, c=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":"&#39;"}[c])); }
+
+    /* controls */
+    document.getElementById('randomizeAll').addEventListener('click',()=>renderCards(6));
+    document.getElementById('clearFav').addEventListener('click',()=>{
+        if(confirm('Xóa tất cả lời chúc yêu thích?')){ favorites=[]; localStorage.removeItem('favWishes'); renderFavorites(); }
+    });
+
+    /* initial */
+    renderCards(6);
+    renderFavorites();
+</script>
+
+</body>
+</html>
